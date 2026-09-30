@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="A clean cloud-synced to-do list powered by Puter.js." />
+  <title>TaskFlow — Puter.js To-Do</title>
+  <script src="https://js.puter.com/v2/"></script>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: rgba(255,255,255,.88);
+      --panel-solid: #fff;
+      --text: #172033;
+      --muted: #6c7487;
+      --line: #e5e9f0;
+      --accent: #5b5ce2;
+      --accent-strong: #4a4bd0;
+      --accent-soft: #ececff;
+      --success: #17935b;
+      --danger: #d74455;
+      --shadow: 0 18px 55px rgba(31, 39, 61, .10);
+      --radius: 22px;
+    }
+    * { box-sizing: border-box; }
+    html { min-height: 100%; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 10%, rgba(91,92,226,.13), transparent 30%),
+        radial-gradient(circle at 90% 85%, rgba(23,147,91,.09), transparent 26%),
+        var(--bg);
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    .app-shell { width: min(980px, calc(100% - 28px)); margin: 0 auto; padding: 34px 0 22px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:20px; }
+    .brand { display:flex; align-items:center; gap:13px; }
+    .brand-mark {
+      width:48px; height:48px; display:grid; place-items:center; border-radius:16px;
+      color:white; background: linear-gradient(135deg, var(--accent), #7a63ee);
+      box-shadow: 0 12px 24px rgba(91,92,226,.24); font-weight:900; font-size:22px;
+    }
+    h1 { margin:0; font-size: clamp(27px, 4vw, 36px); letter-spacing:-.04em; }
+    .subtitle { margin:4px 0 0; color:var(--muted); font-size:14px; }
+    .status {
+      display:flex; align-items:center; gap:8px; padding:9px 12px; border-radius:999px;
+      background:var(--panel); border:1px solid rgba(229,233,240,.9); box-shadow:0 8px 24px rgba(31,39,61,.05);
+      font-size:12px; color:var(--muted); white-space:nowrap;
+    }
+    .status-dot { width:8px; height:8px; border-radius:50%; background:#b8bfcc; }
+    .status.online .status-dot { background:var(--success); box-shadow:0 0 0 4px rgba(23,147,91,.10); }
+    .status.offline .status-dot { background:#d18b25; }
+    .panel {
+      background:var(--panel); border:1px solid rgba(255,255,255,.76); border-radius:var(--radius);
+      box-shadow:var(--shadow); backdrop-filter: blur(18px); overflow:hidden;
+    }
+    .composer { padding:20px; display:grid; grid-template-columns: 1fr auto; gap:12px; border-bottom:1px solid var(--line); }
+    .input-wrap { position:relative; }
+    .input-wrap input {
+      width:100%; border:1px solid var(--line); border-radius:15px; padding:14px 15px; outline:none;
+      color:var(--text); background:var(--panel-solid); transition:.18s ease;
+    }
+    .input-wrap input:focus { border-color:rgba(91,92,226,.6); box-shadow:0 0 0 4px rgba(91,92,226,.11); }
+    .primary {
+      border:0; border-radius:15px; padding:0 19px; min-height:48px; color:white; font-weight:750;
+      background:linear-gradient(135deg, var(--accent), var(--accent-strong)); box-shadow:0 10px 24px rgba(91,92,226,.22);
+    }
+    .primary:hover { transform:translateY(-1px); }
+    .toolbar { padding:15px 20px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); }
+    .filters { display:flex; flex-wrap:wrap; gap:6px; }
+    .filter-btn, .ghost {
+      border:1px solid var(--line); background:var(--panel-solid); color:var(--muted); padding:9px 12px; border-radius:11px;
+    }
+    .filter-btn.active { color:var(--accent-strong); background:var(--accent-soft); border-color:rgba(91,92,226,.17); font-weight:700; }
+    .toolbar-actions { display:flex; gap:8px; align-items:center; }
+    .ghost.danger:hover { color:var(--danger); border-color:rgba(215,68,85,.28); }
+    .search { width:180px; min-width:140px; border:1px solid var(--line); border-radius:11px; padding:9px 11px; outline:none; background:var(--panel-solid); }
+    .list { padding:8px 12px 14px; }
+    .task {
+      display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; padding:14px 10px;
+      border-bottom:1px solid var(--line); animation:fadeIn .18s ease;
+    }
+    .task:last-child { border-bottom:0; }
+    .check {
+      width:22px; height:22px; border-radius:8px; border:2px solid #c8cfdb; background:white; display:grid; place-items:center;
+      flex:none; padding:0; transition:.16s ease;
+    }
+    .check.checked { background:var(--success); border-color:var(--success); color:white; }
+    .check svg { width:14px; height:14px; }
+    .task-text { min-width:0; }
+    .task-title { font-size:15px; line-height:1.45; word-break:break-word; }
+    .task.completed .task-title { color:#9ba2b0; text-decoration:line-through; }
+    .task-meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:5px; font-size:11px; color:var(--muted); }
+    .delete-btn { border:0; background:transparent; color:#9aa2b0; padding:8px; border-radius:9px; opacity:.45; }
+    .task:hover .delete-btn, .delete-btn:focus-visible { opacity:1; }
+    .delete-btn:hover { color:var(--danger); background:rgba(215,68,85,.08); }
+    .empty { text-align:center; padding:52px 20px 58px; color:var(--muted); }
+    .empty-icon { width:58px; height:58px; margin:0 auto 13px; display:grid; place-items:center; border-radius:18px; background:var(--accent-soft); color:var(--accent); font-size:24px; }
+    .empty strong { display:block; color:var(--text); font-size:16px; margin-bottom:4px; }
+    .footer { display:flex; justify-content:space-between; gap:12px; margin-top:14px; padding:0 5px; font-size:12px; color:var(--muted); }
+    .footer a { color:inherit; }
+    .kbd { border:1px solid var(--line); background:rgba(255,255,255,.7); border-radius:6px; padding:1px 5px; }
+    .loading { pointer-events:none; opacity:.65; }
+    .toast {
+      position:fixed; left:50%; bottom:22px; transform:translate(-50%, 16px); opacity:0; pointer-events:none;
+      padding:11px 15px; border-radius:12px; color:white; background:#222938; box-shadow:0 12px 34px rgba(0,0,0,.18); font-size:13px; transition:.18s ease; z-index:5;
+    }
+    .toast.show { opacity:1; transform:translate(-50%,0); }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+    @media (max-width: 700px) {
+      .app-shell { width:min(100% - 18px, 980px); padding-top:20px; }
+      .topbar { align-items:flex-start; }
+      .status { display:none; }
+      .composer { grid-template-columns:1fr; }
+      .primary { min-height:44px; }
+      .toolbar { align-items:stretch; }
+      .toolbar-actions { width:100%; }
+      .search { flex:1; width:auto; }
+      .task { grid-template-columns:auto 1fr auto; padding-left:4px; padding-right:4px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">✓</div>
+        <div>
+          <h1>TaskFlow</h1>
+          <p class="subtitle">A simple to-do list that saves with Puter.js.</p>
+        </div>
+      </div>
+      <div id="status" class="status"><span class="status-dot"></span><span id="statusText">Connecting…</span></div>
+    </header>
+
+    <section class="panel" aria-label="To-do list">
+      <form id="todoForm" class="composer" autocomplete="off">
+        <div class="input-wrap">
+          <input id="todoInput" maxlength="240" placeholder="What needs to be done?" aria-label="New task" />
+        </div>
+        <button class="primary" type="submit">Add task</button>
+      </form>
+
+      <div class="toolbar">
+        <div class="filters" role="group" aria-label="Task filters">
+          <button class="filter-btn active" data-filter="all" type="button">All</button>
+          <button class="filter-btn" data-filter="active" type="button">Active</button>
+          <button class="filter-btn" data-filter="completed" type="button">Completed</button>
+        </div>
+        <div class="toolbar-actions">
+          <input id="searchInput" class="search" placeholder="Search tasks…" aria-label="Search tasks" />
+          <button id="clearCompleted" class="ghost danger" type="button">Clear completed</button>
+        </div>
+      </div>
+
+      <div id="taskList" class="list"></div>
+    </section>
+
+    <div class="footer">
+      <span id="countText">0 tasks</span>
+      <span><span class="kbd">Enter</span> to add • data stored in your Puter account</span>
+    </div>
+    <div style="text-align:center;margin-top:10px;font-size:12px;color:var(--muted)">
+      Powered by <a href="https://developer.puter.com" target="_blank" rel="noopener noreferrer">Puter</a>
+    </div>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      const KEY_PREFIX = 'taskflow:todo:';
+      const LOCAL_KEY = 'taskflow-local-cache-v1';
+      const state = { tasks: [], filter: 'all', search: '', puterReady: false, saving: false };
+
+      const $ = (selector) => document.querySelector(selector);
+      const taskList = $('#taskList');
+      const input = $('#todoInput');
+      const form = $('#todoForm');
+      const searchInput = $('#searchInput');
+      const clearCompleted = $('#clearCompleted');
+      const status = $('#status');
+      const statusText = $('#statusText');
+      const countText = $('#countText');
+      const toast = $('#toast');
+
+      function showToast(message) {
+        toast.textContent = message;
+        toast.classList.add('show');
+        window.clearTimeout(showToast.timer);
+        showToast.timer = window.setTimeout(() => toast.classList.remove('show'), 2200);
+      }
+
+      function makeId() {
+        return (crypto && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      }
+
+      function escapeDate(ts) {
+        try { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(ts)); }
+        catch { return ''; }
+      }
+
+      function setConnection(online, text) {
+        status.classList.toggle('online', online === true);
+        status.classList.toggle('offline', online === false);
+        statusText.textContent = text;
+      }
+
+      function saveLocal() {
+        try { localStorage.setItem(LOCAL_KEY, JSON.stringify(state.tasks)); } catch (_) {}
+      }
+
+      function readLocal() {
+        try {
+          const raw = localStorage.getItem(LOCAL_KEY);
+          const parsed = raw ? JSON.parse(raw) : [];
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (_) { return []; }
+      }
+
+      async function puterList() {
+        const rows = await puter.kv.list(`${KEY_PREFIX}*`, true);
+        return (Array.isArray(rows) ? rows : [])
+          .map(row => row && row.value)
+          .filter(t => t && typeof t === 'object' && typeof t.id === 'string' && typeof t.text === 'string')
+          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      }
+
+      async function puterSet(task) {
+        await puter.kv.set(`${KEY_PREFIX}${task.id}`, task);
+      }
+
+      async function puterDelete(taskId) {
+        await puter.kv.del(`${KEY_PREFIX}${taskId}`);
+      }
+
+      async function loadTasks() {
+        try {
+          const tasks = await puterList();
+          state.tasks = tasks;
+          state.puterReady = true;
+          saveLocal();
+          setConnection(true, 'Synced with Puter');
+        } catch (error) {
+          state.tasks = readLocal();
+          state.puterReady = false;
+          setConnection(false, 'Local fallback');
+          console.warn('Puter storage unavailable:', error);
+        }
+        render();
+      }
+
+      async function persistTask(task) {
+        if (state.puterReady) {
+          try { await puterSet(task); return true; }
+          catch (error) {
+            state.puterReady = false;
+            setConnection(false, 'Local fallback');
+            console.warn('Puter save failed:', error);
+          }
+        }
+        saveLocal();
+        return false;
+      }
+
+      async function removeTask(taskId) {
+        if (state.puterReady) {
+          try { await puterDelete(taskId); return true; }
+          catch (error) {
+            state.puterReady = false;
+            setConnection(false, 'Local fallback');
+            console.warn('Puter delete failed:', error);
+          }
+        }
+        saveLocal();
+        return false;
+      }
+
+      function filteredTasks() {
+        const q = state.search.trim().toLowerCase();
+        return state.tasks.filter(task => {
+          const filterOK = state.filter === 'all' || (state.filter === 'active' && !task.done) || (state.filter === 'completed' && task.done);
+          const searchOK = !q || task.text.toLowerCase().includes(q);
+          return filterOK && searchOK;
+        });
+      }
+
+      function renderTask(task) {
+        const article = document.createElement('article');
+        article.className = `task${task.done ? ' completed' : ''}`;
+
+        const check = document.createElement('button');
+        check.type = 'button';
+        check.className = `check${task.done ? ' checked' : ''}`;
+        check.setAttribute('aria-label', task.done ? 'Mark task active' : 'Mark task completed');
+        if (task.done) check.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 4 4L19 6"/></svg>';
+        check.addEventListener('click', () => toggleTask(task.id));
+
+        const content = document.createElement('div');
+        content.className = 'task-text';
+        const title = document.createElement('div');
+        title.className = 'task-title';
+        title.textContent = task.text;
+        content.appendChild(title);
+        const meta = document.createElement('div');
+        meta.className = 'task-meta';
+        const updated = task.updatedAt && task.updatedAt !== task.createdAt ? `Updated ${escapeDate(task.updatedAt)}` : `Added ${escapeDate(task.createdAt)}`;
+        meta.textContent = updated;
+        content.appendChild(meta);
+
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'delete-btn';
+        del.setAttribute('aria-label', `Delete ${task.text}`);
+        del.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2m-9 0 1 15h8l1-15M10 10v7m4-7v7"/></svg>';
+        del.addEventListener('click', () => deleteTask(task.id));
+
+        article.append(check, content, del);
+        return article;
+      }
+
+      function render() {
+        const visible = filteredTasks();
+        taskList.replaceChildren();
+        if (!visible.length) {
+          const empty = document.createElement('div');
+          empty.className = 'empty';
+          const icon = document.createElement('div');
+          icon.className = 'empty-icon';
+          icon.textContent = state.search || state.filter !== 'all' ? '⌕' : '✓';
+          const strong = document.createElement('strong');
+          strong.textContent = state.search || state.filter !== 'all' ? 'No matching tasks' : 'Your list is empty';
+          const hint = document.createElement('div');
+          hint.textContent = state.search || state.filter !== 'all' ? 'Try a different filter or search.' : 'Add your first task above.';
+          empty.append(icon, strong, hint);
+          taskList.appendChild(empty);
+        } else {
+          const fragment = document.createDocumentFragment();
+          visible.forEach(task => fragment.appendChild(renderTask(task)));
+          taskList.appendChild(fragment);
+        }
+        const remaining = state.tasks.filter(t => !t.done).length;
+        countText.textContent = `${remaining} ${remaining === 1 ? 'task' : 'tasks'} left · ${state.tasks.length} total`;
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.filter === state.filter));
+        clearCompleted.disabled = !state.tasks.some(t => t.done);
+        clearCompleted.style.opacity = clearCompleted.disabled ? '.5' : '';
+      }
+
+      async function addTask(text) {
+        const clean = text.trim();
+        if (!clean || state.saving) return;
+        const task = { id: makeId(), text: clean, done: false, createdAt: Date.now(), updatedAt: Date.now() };
+        state.tasks.unshift(task);
+        render();
+        input.value = '';
+        state.saving = true;
+        try {
+          await persistTask(task);
+          saveLocal();
+          showToast(state.puterReady ? 'Task saved' : 'Task saved locally');
+        } finally { state.saving = false; }
+      }
+
+      async function toggleTask(id) {
+        const task = state.tasks.find(t => t.id === id);
+        if (!task || state.saving) return;
+        task.done = !task.done;
+        task.updatedAt = Date.now();
+        render();
+        state.saving = true;
+        try { await persistTask(task); saveLocal(); }
+        finally { state.saving = false; }
+      }
+
+      async function deleteTask(id) {
+        if (state.saving) return;
+        const index = state.tasks.findIndex(t => t.id === id);
+        if (index < 0) return;
+        const [removed] = state.tasks.splice(index, 1);
+        render();
+        state.saving = true;
+        try { await removeTask(id); saveLocal(); showToast('Task deleted'); }
+        catch { state.tasks.splice(index, 0, removed); render(); }
+        finally { state.saving = false; }
+      }
+
+      async function clearDone() {
+        const completed = state.tasks.filter(t => t.done);
+        if (!completed.length || state.saving) return;
+        state.tasks = state.tasks.filter(t => !t.done);
+        render();
+        state.saving = true;
+        try {
+          if (state.puterReady) {
+            await Promise.all(completed.map(t => puterDelete(t.id)));
+          }
+          saveLocal();
+          showToast(`${completed.length} completed task${completed.length === 1 ? '' : 's'} cleared`);
+        } catch (error) {
+          state.puterReady = false;
+          setConnection(false, 'Local fallback');
+          saveLocal();
+          showToast('Cleared locally; Puter sync failed');
+          console.warn('Puter clear failed:', error);
+        } finally { state.saving = false; }
+      }
+
+      document.querySelectorAll('.filter-btn').forEach(btn => btn.addEventListener('click', () => {
+        state.filter = btn.dataset.filter;
+        render();
+      }));
+      searchInput.addEventListener('input', () => { state.search = searchInput.value; render(); });
+      clearCompleted.addEventListener('click', clearDone);
+      form.addEventListener('submit', event => { event.preventDefault(); addTask(input.value); });
+
+      document.addEventListener('keydown', event => {
+        if (event.key === '/' && document.activeElement !== input && document.activeElement !== searchInput) {
+          event.preventDefault(); searchInput.focus();
+        }
+      });
+
+      // Puter cloud storage is the primary data source. A browser cache keeps the UI usable
+      // if Puter is temporarily unavailable; it is overwritten from Puter when sync succeeds.
+      if (window.puter && puter.auth && typeof puter.auth.isSignedIn === 'function') {
+        setConnection(puter.auth.isSignedIn(), puter.auth.isSignedIn() ? 'Connecting…' : 'Puter sign-in on first save');
+      }
+      loadTasks();
+    })();
+  </script>
+</body>
+</html>
